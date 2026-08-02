@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Finanzas">
 <title>Mis Finanzas 💰</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root {
   --primary:#1564C0; --primary-dk:#0D47A1;
@@ -39,6 +40,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
         background:rgba(230,81,0,.3);border-radius:8px;
         padding:6px 10px;font-size:12px}
 .hdr-tc.hidden{display:none}
+.hdr-monthrow{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+.mnav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;
+          width:28px;height:28px;border-radius:7px;font-size:16px;
+          cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.mnav-btn:active{background:rgba(255,255,255,.3)}
+#hdrToday{display:none;font-size:10.5px;opacity:.85;text-decoration:underline;
+          cursor:pointer;margin-top:3px;text-align:right}
 
 /* MAIN */
 #main{padding:14px;padding-bottom:calc(var(--nav-h) + 16px)}
@@ -214,8 +222,13 @@ a{color:var(--primary)}
       <div id="hdrSaldo">S/ 0.00</div>
     </div>
     <div class="hdr-right">
-      <div id="hdrMes" class="hdr-lbl"></div>
+      <div class="hdr-monthrow">
+        <button class="mnav-btn" onclick="changeMonth(-1)">‹</button>
+        <div id="hdrMes" class="hdr-lbl"></div>
+        <button class="mnav-btn" onclick="changeMonth(1)">›</button>
+      </div>
       <div id="hdrGastado">Gastado: S/ 0.00</div>
+      <div id="hdrToday" onclick="goToday()">← Volver a hoy</div>
     </div>
   </div>
   <div class="hdr-tc hidden" id="hdrTC">
@@ -307,6 +320,13 @@ a{color:var(--primary)}
       <label class="fl">Descripción</label>
       <input type="text" class="fi" id="cfDesc" placeholder="¿Qué fue?">
     </div>
+    <div class="fg">
+      <label class="fl">Fecha del gasto</label>
+      <input type="date" class="fi" id="cfDate">
+      <div style="font-size:11.5px;color:var(--txt2);margin-top:5px">
+        💡 Elige una fecha futura para registrar por adelantado gastos con tarjeta.
+      </div>
+    </div>
     <!-- TYPE TOGGLE -->
     <div class="fg">
       <label class="fl">Forma de pago</label>
@@ -389,12 +409,35 @@ a{color:var(--primary)}
     </div>
   </div>
 
+  <div class="card">
+    <div class="ctitle">📅 Conectar Google Calendar (tu cuenta personal)</div>
+    <div class="fg" style="margin-bottom:10px">
+      <label class="fl">Google Client ID</label>
+      <input type="text" class="fi" id="cGClientId" placeholder="xxxx.apps.googleusercontent.com">
+    </div>
+    <div id="gStatus" style="font-size:13px;color:var(--txt2);margin-bottom:10px"></div>
+    <div class="brow" style="margin-top:0">
+      <button class="btn bg" style="flex:1" onclick="disconnectGoogle()" id="gDiscBtn">Desconectar</button>
+      <button class="btn bp" style="flex:1" onclick="connectGoogle()" id="gConnBtn">Conectar con Google</button>
+    </div>
+    <div class="info-box" style="margin-top:10px">
+      Con esto, al tocar "Agregar a Calendar" el evento se crea directo en <b>tu</b> Google Calendar (sin abrir un link). Pasos para tu Client ID (gratis, ~5 min):<br>
+      1. Ve a <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> → crea un proyecto<br>
+      2. "APIs y servicios" → "Biblioteca" → habilita <b>Google Calendar API</b><br>
+      3. "Pantalla de consentimiento OAuth" → tipo Externo → agrégate como usuario de prueba<br>
+      4. "Credenciales" → "Crear credenciales" → ID de cliente de OAuth → tipo Aplicación web<br>
+      5. En "Orígenes de JavaScript autorizados" agrega la URL exacta de tu app (ej. https://tuusuario.github.io)<br>
+      6. Copia el Client ID, pégalo arriba, guarda la configuración y toca "Conectar con Google"<br>
+      Sin conectar, "Agregar a Calendar" sigue funcionando como antes (abre un link para agregarlo manualmente).
+    </div>
+  </div>
+
   <button class="btn bp" onclick="doSaveCfg()" style="margin-bottom:11px">💾 Guardar configuración</button>
 
   <div class="card" style="border:1.5px solid #FFCDD2">
     <div class="ctitle" style="color:var(--danger)">Zona de reinicio</div>
     <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">
-      Borra los gastos del mes actual. La configuración se mantiene.
+      Borra los gastos del mes que estás viendo arriba. La configuración se mantiene.
     </p>
     <button class="btn bd" onclick="clearMonth()">Limpiar gastos del mes</button>
   </div>
@@ -475,30 +518,73 @@ const DEF_CFG = {
 // ESTADO
 // ════════════════════════════════════════════════════════
 const CFG_KEY  = 'pf_cfg_v4'
-const monthKey = () => { const d=new Date(); return `pf_exp_${d.getFullYear()}_${d.getMonth()}` }
+const monthKey = (y,m) => `pf_exp_${y}_${m}`
 
 let cfg = {}, exps = []
+let viewYear, viewMonth
+
+function loadExpsFor(y,m){
+  try{ return JSON.parse(localStorage.getItem(monthKey(y,m)))||[] }
+  catch{ return [] }
+}
+function saveExpsFor(y,m,arr){ localStorage.setItem(monthKey(y,m), JSON.stringify(arr)) }
 
 function loadState(){
   try{ cfg = JSON.parse(localStorage.getItem(CFG_KEY))||{...DEF_CFG} }
   catch{ cfg = {...DEF_CFG} }
   if(!cfg.expenses)   cfg.expenses   = [...DEF_CFG.expenses]
   if(!cfg.billingDay) cfg.billingDay = 15
-  try{ exps = JSON.parse(localStorage.getItem(monthKey()))||[] }
-  catch{ exps = [] }
+  const now = new Date()
+  viewYear  = now.getFullYear()
+  viewMonth = now.getMonth()
+  exps = loadExpsFor(viewYear, viewMonth)
 }
 function saveCfgStore(){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
-function saveExpsStore(){ localStorage.setItem(monthKey(), JSON.stringify(exps)) }
+function saveExpsStore(){ saveExpsFor(viewYear, viewMonth, exps) }
+
+function changeMonth(delta){
+  viewMonth += delta
+  if(viewMonth<0){ viewMonth=11; viewYear-- }
+  if(viewMonth>11){ viewMonth=0; viewYear++ }
+  exps = loadExpsFor(viewYear, viewMonth)
+  renderAll()
+}
+
+function goToday(){
+  const now = new Date()
+  viewYear  = now.getFullYear()
+  viewMonth = now.getMonth()
+  exps = loadExpsFor(viewYear, viewMonth)
+  renderAll()
+}
 
 // ════════════════════════════════════════════════════════
 // HELPERS DE FECHA TC
 // ════════════════════════════════════════════════════════
-function getNextBillingDate(){
-  const d = new Date()
+function ymdStr(y,m,d){
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+}
+function parseYMD(str){
+  const [y,m,d] = str.split('-').map(Number)
+  return {y, m:m-1, d}
+}
+function defaultExpDate(){
+  const now = new Date()
+  if(viewYear===now.getFullYear() && viewMonth===now.getMonth()){
+    return ymdStr(now.getFullYear(), now.getMonth(), now.getDate())
+  }
+  const lastDay = new Date(viewYear, viewMonth+1, 0).getDate()
+  const day = Math.min(now.getDate(), lastDay)
+  return ymdStr(viewYear, viewMonth, day)
+}
+function getNextBillingDateFor(y,m){
   const day = cfg.billingDay || 15
-  // Compras de este mes → pago el mes siguiente
-  const next = new Date(d.getFullYear(), d.getMonth()+1, day)
-  return next.toISOString().split('T')[0]
+  // Compras de ese mes → pago el mes siguiente
+  const next = new Date(y, m+1, day)
+  return ymdStr(next.getFullYear(), next.getMonth(), next.getDate())
+}
+function getNextBillingDate(){
+  return getNextBillingDateFor(viewYear, viewMonth)
 }
 
 function formatDate(isoDate){
@@ -545,8 +631,10 @@ function renderAll(){
   const hS = document.getElementById('hdrSaldo')
   hS.textContent = fmt(c.saldoRest)
   hS.className = c.saldoRest<0 ? 'neg' : ''
-  document.getElementById('hdrMes').textContent = MESES[now.getMonth()]+' '+now.getFullYear()
+  document.getElementById('hdrMes').textContent = MESES[viewMonth]+' '+viewYear
   document.getElementById('hdrGastado').textContent = 'Efectivo: '+fmt(c.cashSpent)
+  const isCurrentMonth = viewYear===now.getFullYear() && viewMonth===now.getMonth()
+  document.getElementById('hdrToday').style.display = isCurrentMonth ? 'none' : 'block'
   // TC indicator in header
   const hdrTC = document.getElementById('hdrTC')
   if(c.creditAmt>0){
@@ -607,6 +695,8 @@ function renderAll(){
   document.getElementById('cSavings').value    = cfg.savingsGoal||''
   document.getElementById('cBillingDay').value = cfg.billingDay||15
   document.getElementById('cGeminiKey').value  = cfg.geminiKey||''
+  document.getElementById('cGClientId').value  = cfg.gClientId||''
+  renderGoogleStatus()
   renderCfgExps()
   renderHistory()
 }
@@ -640,10 +730,20 @@ function eItemHTML(e, del){
 function renderCfgExps(){
   document.getElementById('cfgExps').innerHTML=cfg.expenses.map((e,i)=>`
     <div class="cfgrow cfg-row">
-      <input type="text"   class="exp-name" value="${e.name}"   placeholder="Nombre" style="flex:2">
-      <input type="number" class="exp-amt"  value="${e.amount}" placeholder="0"      style="flex:1;min-width:65px">
+      <input type="text"   class="exp-name" data-i="${i}" value="${e.name}"   placeholder="Nombre" style="flex:2">
+      <input type="number" class="exp-amt"  data-i="${i}" value="${e.amount}" placeholder="0"      style="flex:1;min-width:65px">
       <button class="delbtn" onclick="rmCfgExp(${i})">✕</button>
     </div>`).join('')
+}
+
+function syncCfgExp(i){
+  const rows = document.querySelectorAll('.cfg-row')
+  const r = rows[i]
+  if(!r) return
+  const name   = r.querySelector('.exp-name').value.trim()
+  const amount = parseFloat(r.querySelector('.exp-amt').value)||0
+  cfg.expenses[i] = {...cfg.expenses[i], name: name||'Gasto fijo', amount}
+  saveCfgStore()
 }
 
 function renderHistory(){
@@ -669,7 +769,7 @@ function filterHistory(type){
 }
 
 // ════════════════════════════════════════════════════════
-// GOOGLE CALENDAR
+// GOOGLE CALENDAR (link manual — siempre disponible como respaldo)
 // ════════════════════════════════════════════════════════
 function gcalLink(title, dateStr, details){
   const d = dateStr.replace(/-/g,'')
@@ -680,20 +780,120 @@ function gcalLink(title, dateStr, details){
     +`&sf=true&output=xml`
 }
 
-function addToCalendar(e){
+// ════════════════════════════════════════════════════════
+// GOOGLE CALENDAR (conexión real vía OAuth — cuenta personal)
+// ════════════════════════════════════════════════════════
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+let gTokenClient = null
+let gAccessToken = null
+let gTokenExpiry = 0
+
+function initGoogleAuth(){
+  if(!cfg.gClientId || !window.google?.accounts?.oauth2) return null
+  gTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cfg.gClientId,
+    scope: GCAL_SCOPE,
+    callback: ()=>{} // se sobreescribe por request
+  })
+  return gTokenClient
+}
+
+function hasValidGoogleToken(){
+  return !!gAccessToken && Date.now() < gTokenExpiry - 5000
+}
+
+function connectGoogle(){
+  if(!cfg.gClientId){ toast('⚠️ Primero pega tu Google Client ID y guarda'); return }
+  if(!gTokenClient) initGoogleAuth()
+  if(!gTokenClient){ toast('⚠️ No se pudo iniciar Google Identity Services'); return }
+  gTokenClient.callback = (resp)=>{
+    if(resp.error){ toast('⚠️ No se pudo conectar con Google'); return }
+    gAccessToken = resp.access_token
+    gTokenExpiry = Date.now() + (resp.expires_in*1000)
+    cfg.gConnected = true
+    saveCfgStore()
+    toast('✅ Conectado con Google Calendar')
+    renderGoogleStatus()
+  }
+  gTokenClient.requestAccessToken({prompt:'consent'})
+}
+
+function disconnectGoogle(){
+  if(gAccessToken) google.accounts?.oauth2?.revoke(gAccessToken, ()=>{})
+  gAccessToken=null; gTokenExpiry=0
+  cfg.gConnected=false; saveCfgStore()
+  toast('Desconectado de Google')
+  renderGoogleStatus()
+}
+
+function ensureGoogleToken(){
+  return new Promise(resolve=>{
+    if(hasValidGoogleToken()){ resolve(true); return }
+    if(!cfg.gClientId){ resolve(false); return }
+    if(!gTokenClient) initGoogleAuth()
+    if(!gTokenClient){ resolve(false); return }
+    gTokenClient.callback = (resp)=>{
+      if(resp.error){ resolve(false); return }
+      gAccessToken = resp.access_token
+      gTokenExpiry = Date.now() + (resp.expires_in*1000)
+      cfg.gConnected = true
+      saveCfgStore()
+      renderGoogleStatus()
+      resolve(true)
+    }
+    gTokenClient.requestAccessToken({prompt: cfg.gConnected ? '' : 'consent'})
+  })
+}
+
+async function createGCalEvent(title, dateStr, details){
+  const ok = await ensureGoogleToken()
+  if(!ok) return false
+  try{
+    const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method:'POST',
+      headers:{'Authorization':'Bearer '+gAccessToken, 'Content-Type':'application/json'},
+      body: JSON.stringify({ summary:title, description:details, start:{date:dateStr}, end:{date:dateStr} })
+    })
+    return r.ok
+  }catch{ return false }
+}
+
+function renderGoogleStatus(){
+  const el = document.getElementById('gStatus')
+  if(!el) return
+  const connBtn = document.getElementById('gConnBtn')
+  const discBtn = document.getElementById('gDiscBtn')
+  if(cfg.gConnected){
+    el.textContent = '✅ Conectado — los eventos se crean directo en tu Calendar'
+    connBtn.style.display='none'; discBtn.style.display='block'
+  } else {
+    el.textContent = cfg.gClientId ? 'Aún no conectado' : 'Sin conectar (usando link manual de Calendar)'
+    connBtn.style.display='block'; discBtn.style.display='none'
+  }
+}
+
+async function addToCalendar(e){
   const date  = e.paymentDate || getNextBillingDate()
   const title = `💳 Pago TC – ${e.desc||e.cat} (S/ ${(+e.amount).toFixed(2)})`
   const det   = `Gasto con tarjeta registrado el ${formatDate(e.ts.split('T')[0])}\nConcepto: ${e.desc||e.cat}\nMonto: S/ ${(+e.amount).toFixed(2)}\n\nRegistrado en Mis Finanzas`
+  if(cfg.gClientId){
+    const ok = await createGCalEvent(title, date, det)
+    if(ok){ toast('✅ Evento agregado a tu Calendar'); return }
+  }
   window.open(gcalLink(title, date, det), '_blank')
 }
 
-function openTCCalendar(){
+async function openTCCalendar(){
   const c    = calc()
   const date = c.nextTCDate
   const creditExps = c.creditExps
   const detailLines = creditExps.map(e=>`• ${e.desc||e.cat}: S/ ${(+e.amount).toFixed(2)}`).join('\n')
-  const title = `💳 Pago TC – ${MESES[new Date().getMonth()]} (S/ ${c.creditAmt.toFixed(2)})`
+  const title = `💳 Pago TC – ${MESES[viewMonth]} ${viewYear} (S/ ${c.creditAmt.toFixed(2)})`
   const det   = `Total a pagar: S/ ${c.creditAmt.toFixed(2)}\n\nDetalle de gastos:\n${detailLines}\n\nRegistrado en Mis Finanzas`
+  if(cfg.gClientId){
+    const ok = await createGCalEvent(title, date, det)
+    if(ok){ toast('✅ Evento agregado a tu Calendar'); return }
+  }
   window.open(gcalLink(title, date, det), '_blank')
 }
 
@@ -714,28 +914,28 @@ function delExp(id){
   toast('Gasto eliminado')
 }
 
-function addCfgExp(){ cfg.expenses.push({id:Date.now(),name:'',amount:0}); renderCfgExps() }
-function rmCfgExp(i){ cfg.expenses.splice(i,1); renderCfgExps() }
+function addCfgExp(){ cfg.expenses.push({id:Date.now(),name:'',amount:0}); saveCfgStore(); renderCfgExps() }
+function rmCfgExp(i){ cfg.expenses.splice(i,1); saveCfgStore(); renderCfgExps() }
 
 function doSaveCfg(){
   cfg.income      = parseFloat(document.getElementById('cIncome').value)||0
   cfg.savingsGoal = parseFloat(document.getElementById('cSavings').value)||0
   cfg.billingDay  = parseInt(document.getElementById('cBillingDay').value)||15
   cfg.geminiKey   = document.getElementById('cGeminiKey').value.trim()
-  const rows = document.querySelectorAll('.cfg-row')
-  cfg.expenses=[]
-  rows.forEach((r,i)=>{
-    const name  =r.querySelector('.exp-name').value.trim()
-    const amount=parseFloat(r.querySelector('.exp-amt').value)||0
-    if(name) cfg.expenses.push({id:Date.now()+i,name,amount})
-  })
+  const newClientId = document.getElementById('cGClientId').value.trim()
+  if(newClientId !== cfg.gClientId){
+    cfg.gClientId = newClientId
+    gTokenClient = null; gAccessToken = null; gTokenExpiry = 0
+    cfg.gConnected = false
+    if(cfg.gClientId) initGoogleAuth()
+  }
   saveCfgStore()
   toast('✅ Configuración guardada')
   renderAll()
 }
 
 function clearMonth(){
-  if(!confirm('¿Borrar todos los gastos de este mes?')) return
+  if(!confirm(`¿Borrar todos los gastos de ${MESES[viewMonth]} ${viewYear}?`)) return
   exps=[]; saveExpsStore(); renderAll()
   toast('Gastos del mes borrados')
 }
@@ -758,6 +958,7 @@ function showConf(amount, cat, desc, autoType){
   selType = autoType || 'cash'
   document.getElementById('cfAmt').value   = amount||''
   document.getElementById('cfDesc').value  = desc||''
+  document.getElementById('cfDate').value  = defaultExpDate()
   document.getElementById('cfPayDate').value = getNextBillingDate()
   document.getElementById('confPanel').style.display='block'
   setType(selType)
@@ -777,19 +978,31 @@ function pickCat(cat){
 function confirmExp(){
   const amount  = parseFloat(document.getElementById('cfAmt').value)
   const desc    = document.getElementById('cfDesc').value.trim()
+  const dateStr = document.getElementById('cfDate').value || defaultExpDate()
   const payDate = document.getElementById('cfPayDate').value
   if(!amount||amount<=0){ toast('⚠️ Ingresa un monto válido'); return }
+  const {y,m,d} = parseYMD(dateStr)
   const exp = {
     id:'e'+Date.now(), amount, cat:selCat,
-    desc:desc||selCat, ts:new Date().toISOString(),
+    desc:desc||selCat, ts:new Date(y,m,d,12,0,0).toISOString(),
     type: selType
   }
-  if(selType==='credit') exp.paymentDate = payDate || getNextBillingDate()
-  exps.push(exp)
-  saveExpsStore(); cancelConf(); renderAll()
+  if(selType==='credit') exp.paymentDate = payDate || getNextBillingDateFor(y,m)
+
+  const sameMonth = (y===viewYear && m===viewMonth)
+  if(sameMonth){
+    exps.push(exp); saveExpsStore()
+  } else {
+    const arr = loadExpsFor(y,m)
+    arr.push(exp)
+    saveExpsFor(y,m,arr)
+    viewYear=y; viewMonth=m; exps=arr
+  }
+  cancelConf(); renderAll()
   goTab('dashboard')
   const typeLabel = selType==='credit' ? '💳 TC' : '💵 Efectivo'
-  toast(`✅ S/ ${amount.toFixed(2)} guardado · ${typeLabel}`)
+  const monthLabel = sameMonth ? '' : ` en ${MESES[m]} ${y}`
+  toast(`✅ S/ ${amount.toFixed(2)} guardado · ${typeLabel}${monthLabel}`)
 }
 
 function cancelConf(){
@@ -892,6 +1105,11 @@ function toast(msg){
 // ════════════════════════════════════════════════════════
 loadState()
 renderAll()
+document.getElementById('cfgExps').addEventListener('input', e=>{
+  const t=e.target
+  if(t.classList.contains('exp-name')||t.classList.contains('exp-amt')) syncCfgExp(+t.dataset.i)
+})
+if(cfg.gClientId) window.addEventListener('load', ()=>initGoogleAuth())
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{})
 </script>
 </body>
