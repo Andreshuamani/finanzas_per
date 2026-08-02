@@ -1,7 +1,11 @@
 // ─── Service Worker — Mis Finanzas PWA ───
 // Cambia el número de versión para forzar actualización del caché
-const CACHE = 'finanzas-v1'
-const FILES = ['./index.html', './manifest.json', './icon.svg']
+const CACHE = 'finanzas-v2'
+const FILES = [
+  './index.html', './manifest.json', './icon.svg',
+  './icon-192.png', './icon-512.png',
+  './icon-maskable-192.png', './icon-maskable-512.png',
+]
 
 // Instalar: guardar archivos en caché
 self.addEventListener('install', e => {
