@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <!-- Fondo -->
+  <rect width="192" height="192" rx="42" fill="#0D47A1"/>
+  <!-- Símbolo S/ -->
+  <text x="96" y="118" font-family="Arial,sans-serif" font-weight="700" font-size="88"
+        text-anchor="middle" fill="white">S/</text>
+  <!-- Línea decorativa -->
+  <rect x="36" y="148" width="120" height="6" rx="3" fill="#FFF176"/>
+</svg>

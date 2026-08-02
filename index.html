@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1564C0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finanzas">
+<title>Mis Finanzas 💰</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+:root {
+  --primary:      #1564C0;
+  --primary-dk:   #0D47A1;
+  --success:      #2E7D32;
+  --danger:       #C62828;
+  --warn:         #E65100;
+  --bg:           #EEF2FA;
+  --surface:      #FFFFFF;
+  --txt:          #1A1A2E;
+  --txt2:         #5A6275;
+  --border:       #DDE3EF;
+  --radius:       16px;
+  --rsm:          10px;
+  --shadow:       0 2px 12px rgba(0,0,0,.08);
+  --nav-h:        68px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+     background:var(--bg);color:var(--txt);min-height:100dvh;overflow-x:hidden}
+
+/* ─── HEADER ─── */
+#hdr{position:sticky;top:0;z-index:100;background:var(--primary-dk);color:#fff;
+     padding:14px 18px 12px;display:flex;justify-content:space-between;align-items:flex-end}
+#hdr .lbl{font-size:11px;opacity:.75;margin-bottom:3px}
+#hdrSaldo{font-size:26px;font-weight:700}
+#hdrSaldo.neg{color:#FF8A80}
+#hdr .right{text-align:right}
+#hdrMes{font-size:12px;opacity:.85}
+#hdrGastado{font-size:14px;font-weight:600;opacity:.9;margin-top:2px}
+
+/* ─── MAIN ─── */
+#main{padding:14px;padding-bottom:calc(var(--nav-h) + 16px)}
+
+/* ─── NAV ─── */
+#nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);
+     background:var(--surface);border-top:1px solid var(--border);
+     display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nbtn{flex:1;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;gap:3px;background:none;border:none;
+      cursor:pointer;color:var(--txt2);font-size:10.5px;font-weight:500;padding-top:6px}
+.nbtn.active{color:var(--primary)}
+.nbtn svg{width:22px;height:22px}
+
+/* ─── CARDS ─── */
+.card{background:var(--surface);border-radius:var(--radius);
+      padding:15px;box-shadow:var(--shadow);margin-bottom:12px}
+.ctitle{font-size:12px;font-weight:700;color:var(--txt2);
+        text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px}
+
+/* ─── METRICS ─── */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.met{background:var(--surface);border-radius:var(--rsm);padding:13px;box-shadow:var(--shadow)}
+.met-lbl{font-size:11px;color:var(--txt2);margin-bottom:3px}
+.met-val{font-size:18px;font-weight:700}
+.green{color:var(--success)}.red{color:var(--danger)}.blue{color:var(--primary)}
+
+/* ─── PROGRESS ─── */
+.prg-hdr{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.prg-track{height:9px;background:var(--border);border-radius:5px;overflow:hidden}
+.prg-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.prg-fill.g{background:var(--success)}.prg-fill.y{background:#F9A825}.prg-fill.r{background:var(--danger)}
+
+/* ─── EXPENSE ITEMS ─── */
+.eitem{display:flex;align-items:center;gap:11px;
+       padding:11px 0;border-bottom:1px solid var(--border)}
+.eitem:last-child{border-bottom:none}
+.eico{width:38px;height:38px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      font-size:17px;flex-shrink:0}
+.einf{flex:1;min-width:0}
+.edesc{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emeta{font-size:11px;color:var(--txt2);margin-top:2px}
+.eamt{font-size:14.5px;font-weight:700;color:var(--danger);white-space:nowrap}
+.delbtn{background:none;border:none;color:var(--danger);
+        cursor:pointer;padding:4px;opacity:.55;font-size:17px}
+.delbtn:hover{opacity:1}
+
+/* ─── TABS ─── */
+.tab{display:none}.tab.active{display:block}
+
+/* ─── VOICE ─── */
+.voice-sec{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 0}
+#voiceBtn{width:84px;height:84px;border-radius:50%;background:var(--primary);
+          border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+          box-shadow:0 4px 18px rgba(21,100,192,.42);color:#fff;transition:transform .15s}
+#voiceBtn:active{transform:scale(.95)}
+#voiceBtn.rec{background:var(--danger);animation:pulse 1.2s infinite;
+               box-shadow:0 4px 18px rgba(198,40,40,.5)}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+#vStatus{font-size:13.5px;color:var(--txt2);text-align:center;min-height:20px}
+
+/* ─── CONFIRM ─── */
+#confPanel{display:none}
+
+/* ─── FORM ─── */
+.fg{margin-bottom:13px}
+.fl{font-size:12.5px;font-weight:600;color:var(--txt2);margin-bottom:5px;display:block}
+.fi{width:100%;padding:11px 13px;border:1.5px solid var(--border);
+    border-radius:var(--rsm);font-size:16px;background:var(--bg);
+    color:var(--txt);outline:none;transition:border-color .2s}
+.fi:focus{border-color:var(--primary)}
+
+/* ─── CHIPS ─── */
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+.chip{padding:6px 13px;border-radius:20px;background:var(--bg);
+      border:1.5px solid var(--border);font-size:12.5px;cursor:pointer;transition:all .15s}
+.chip.sel{background:var(--primary);border-color:var(--primary);color:#fff}
+
+/* ─── BUTTONS ─── */
+.btn{width:100%;padding:14px;border-radius:var(--rsm);border:none;
+     font-size:15px;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s}
+.btn:active{transform:scale(.98);opacity:.9}
+.bp{background:var(--primary);color:#fff}
+.bs{background:var(--success);color:#fff}
+.bd{background:var(--danger);color:#fff}
+.bg{background:var(--bg);color:var(--txt);border:1.5px solid var(--border)}
+.bsm{padding:9px 16px;font-size:13.5px;width:auto;border-radius:8px}
+.brow{display:flex;gap:9px;margin-top:8px}
+
+/* ─── MANUAL ROW ─── */
+.mrow{display:flex;gap:9px;margin-bottom:14px}
+.mrow .fi{flex:1;margin:0;padding:11px 12px}
+
+/* ─── TOAST ─── */
+#toast{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;
+       transform:translateX(-50%) translateY(100px);background:#1A1A2E;
+       color:#fff;padding:11px 20px;border-radius:24px;font-size:13.5px;
+       font-weight:500;z-index:1000;transition:transform .3s ease;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ─── CONFIG ─── */
+.cfgrow{display:flex;align-items:center;gap:8px;
+        padding:9px 0;border-bottom:1px solid var(--border)}
+.cfgrow:last-child{border-bottom:none}
+.cfgrow input{flex:1;padding:8px 10px;border:1.5px solid var(--border);
+              border-radius:8px;font-size:13.5px;background:var(--bg);color:var(--txt)}
+.cfgrow input:focus{outline:none;border-color:var(--primary)}
+
+/* ─── CAT BARS ─── */
+.cbar{margin-bottom:9px}
+.cbar-hdr{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px}
+.cbar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.cbar-fill{height:100%;border-radius:3px}
+
+/* ─── MISC ─── */
+.divider{height:1px;background:var(--border);margin:14px 0}
+.empty{text-align:center;padding:32px 20px;color:var(--txt2)}
+.empty .em{font-size:38px;margin-bottom:10px}
+a{color:var(--primary)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="hdr">
+  <div>
+    <div class="lbl">Saldo disponible</div>
+    <div id="hdrSaldo">S/ 0.00</div>
+  </div>
+  <div class="right">
+    <div id="hdrMes" class="lbl"></div>
+    <div id="hdrGastado">Gastado: S/ 0.00</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- ── TAB: RESUMEN ── -->
+  <div class="tab active" id="tab-dashboard">
+    <div class="card">
+      <div class="ctitle">Uso del presupuesto</div>
+      <div class="prg-hdr"><span id="pPct">0% usado</span><span id="pRest">S/ 0 restante</span></div>
+      <div class="prg-track"><div class="prg-fill g" id="pFill" style="width:0%"></div></div>
+    </div>
+
+    <div class="mgrid">
+      <div class="met"><div class="met-lbl">Saldo mensual</div><div class="met-val blue" id="mSaldo">S/ 0</div></div>
+      <div class="met"><div class="met-lbl">Gastos fijos</div><div class="met-val" id="mFixed">S/ 0</div></div>
+      <div class="met"><div class="met-lbl">Gastado hoy</div><div class="met-val red" id="mHoy">S/ 0</div></div>
+      <div class="met"><div class="met-lbl">Nº de gastos</div><div class="met-val" id="mCount">0</div></div>
+    </div>
+
+    <div class="card" id="catCard" style="display:none">
+      <div class="ctitle">Por categoría</div>
+      <div id="catBars"></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">Últimos gastos</div>
+      <div id="recentList"></div>
+    </div>
+  </div>
+
+  <!-- ── TAB: REGISTRAR ── -->
+  <div class="tab" id="tab-register">
+    <div class="card">
+      <div class="voice-sec">
+        <button id="voiceBtn" onclick="toggleVoice()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="34" height="34">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <div id="vStatus">Toca el micrófono y habla</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="ctitle" style="margin-bottom:9px">O escribe el gasto</div>
+      <div class="mrow">
+        <input type="text" class="fi" id="manualTxt" placeholder='Ej: "almuerzo 25 soles"'>
+        <button class="btn bp bsm" onclick="parseManual()">→</button>
+      </div>
+    </div>
+
+    <div id="confPanel" class="card">
+      <div class="ctitle">✅ Confirmar gasto</div>
+      <div class="fg">
+        <label class="fl">Monto (S/)</label>
+        <input type="number" class="fi" id="cfAmt" placeholder="0.00" step="0.50" min="0">
+      </div>
+      <div class="fg">
+        <label class="fl">Categoría</label>
+        <div class="chips" id="cfChips"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Descripción</label>
+        <input type="text" class="fi" id="cfDesc" placeholder="¿Qué fue?">
+      </div>
+      <div class="brow">
+        <button class="btn bg" style="flex:1" onclick="cancelConf()">Cancelar</button>
+        <button class="btn bs" style="flex:1" onclick="confirmExp()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: HISTORIAL ── -->
+  <div class="tab" id="tab-history">
+    <div class="card" style="padding:11px 15px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <span style="font-size:12.5px;color:var(--txt2);white-space:nowrap">Filtrar:</span>
+        <select class="fi" id="histFil" onchange="renderHistory()" style="padding:8px 10px;font-size:13px">
+          <option value="all">Todas</option>
+        </select>
+      </div>
+    </div>
+    <div id="histList"></div>
+    <div id="histTotal" style="text-align:center;padding:8px;font-size:12.5px;color:var(--txt2)"></div>
+  </div>
+
+  <!-- ── TAB: CONFIG ── -->
+  <div class="tab" id="tab-config">
+    <div class="card">
+      <div class="ctitle">Tu presupuesto</div>
+      <div class="fg">
+        <label class="fl">Ingresos mensuales (S/)</label>
+        <input type="number" class="fi" id="cIncome" placeholder="3500">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label class="fl">Meta de ahorro mensual (S/)</label>
+        <input type="number" class="fi" id="cSavings" placeholder="600">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">Gastos fijos</div>
+      <div id="cfgExps"></div>
+      <button class="btn bg" style="margin-top:11px" onclick="addCfgExp()">+ Agregar gasto fijo</button>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">API Key de Claude (para voz IA)</div>
+      <input type="password" class="fi" id="cApiKey" placeholder="sk-ant-api03-...">
+      <div style="font-size:11.5px;color:var(--txt2);margin-top:7px">
+        Sin key la voz usa reconocimiento básico.
+        <a href="https://console.anthropic.com/settings/keys" target="_blank">Obtener key →</a>
+      </div>
+    </div>
+
+    <button class="btn bp" onclick="doSaveCfg()" style="margin-bottom:11px">💾 Guardar configuración</button>
+
+    <div class="card" style="border:1.5px solid #FFCDD2">
+      <div class="ctitle" style="color:var(--danger)">Zona de reinicio</div>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:12px">
+        Borra los gastos del mes. La configuración se mantiene.
+      </p>
+      <button class="btn bd" onclick="clearMonth()">Limpiar gastos del mes</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="nav">
+  <button class="nbtn active" data-tab="dashboard" onclick="goTab('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+    </svg>Resumen
+  </button>
+  <button class="nbtn" data-tab="register" onclick="goTab('register')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>Registrar
+  </button>
+  <button class="nbtn" data-tab="history" onclick="goTab('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>Historial
+  </button>
+  <button class="nbtn" data-tab="config" onclick="goTab('config')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>Config
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// DATOS MAESTROS
+// ═══════════════════════════════════════════════════
+const CATS = {
+  'Alimentación':   {em:'🍽️', col:'#FF6F00'},
+  'Transporte':     {em:'🚌', col:'#1565C0'},
+  'Entretenimiento':{em:'🎬', col:'#6A1B9A'},
+  'Salud':          {em:'💊', col:'#2E7D32'},
+  'Educación':      {em:'📚', col:'#0277BD'},
+  'Ropa':           {em:'👕', col:'#AD1457'},
+  'Hogar':          {em:'🏠', col:'#4E342E'},
+  'Mascota':        {em:'🐾', col:'#558B2F'},
+  'Varios':         {em:'📦', col:'#546E7A'},
+}
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+
+// Config por defecto — datos reales de Andrés (tu parte proporcional 78%)
+const DEF_CFG = {
+  income: 3500,
+  savingsGoal: 600,
+  apiKey: '',
+  expenses: [
+    {id:1, name:'Alquiler',           amount:390},
+    {id:2, name:'Comida (hogar)',     amount:780},
+    {id:3, name:'Luz / Agua / Gas',   amount:120},
+    {id:4, name:'Pasajes familia',    amount:277},
+    {id:5, name:'Colegios',           amount:82},
+    {id:6, name:'Celular',            amount:164},
+    {id:7, name:'Internet',           amount:51},
+    {id:8, name:'Comida THOR',        amount:23},
+    {id:9, name:'Misceláneos',        amount:465},
+  ]
+}
+
+// ═══════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════
+const CFG_KEY  = 'pf_cfg_andres_v3'
+const monthKey = () => { const d=new Date(); return `pf_exp_${d.getFullYear()}_${d.getMonth()}` }
+
+let cfg = {}
+let exps = []
+
+function loadState(){
+  try{ cfg = JSON.parse(localStorage.getItem(CFG_KEY)) || {...DEF_CFG} }
+  catch{ cfg = {...DEF_CFG} }
+  if(!cfg.expenses) cfg.expenses = [...DEF_CFG.expenses]
+
+  try{ exps = JSON.parse(localStorage.getItem(monthKey())) || [] }
+  catch{ exps = [] }
+}
+
+function persistCfg(){ localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) }
+function persistExps(){ localStorage.setItem(monthKey(), JSON.stringify(exps)) }
+
+// ═══════════════════════════════════════════════════
+// CÁLCULOS
+// ═══════════════════════════════════════════════════
+function calc(){
+  const totFixed   = cfg.expenses.reduce((s,e)=>s+(+e.amount||0), 0)
+  const saldoDisp  = (+cfg.income||0) - totFixed - (+cfg.savingsGoal||0)
+  const totalSpent = exps.reduce((s,e)=>s+(+e.amount||0), 0)
+  const saldoRest  = saldoDisp - totalSpent
+  const pct        = saldoDisp>0 ? totalSpent/saldoDisp*100 : (totalSpent>0?100:0)
+  const today      = new Date().toDateString()
+  const hoy        = exps.filter(e=>new Date(e.ts).toDateString()===today)
+                         .reduce((s,e)=>s+e.amount, 0)
+  const bycat = {}
+  exps.forEach(e=>{ bycat[e.cat]=(bycat[e.cat]||0)+e.amount })
+  return {totFixed, saldoDisp, totalSpent, saldoRest, pct, hoy, bycat}
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════
+const fmt = n=>'S/ '+Math.abs(n).toFixed(2)
+const fmtS = n=>(n<0?'-':'')+'S/ '+Math.abs(n).toFixed(0)
+
+function renderAll(){
+  const c = calc()
+  const now = new Date()
+
+  // Header
+  const hS = document.getElementById('hdrSaldo')
+  hS.textContent = fmt(c.saldoRest)
+  hS.className = c.saldoRest < 0 ? 'neg' : ''
+  document.getElementById('hdrMes').textContent = MESES[now.getMonth()]+' '+now.getFullYear()
+  document.getElementById('hdrGastado').textContent = 'Gastado: '+fmt(c.totalSpent)
+
+  // Progress
+  const pct = Math.min(Math.max(c.pct,0),100)
+  const cls  = c.pct<60?'g':c.pct<85?'y':'r'
+  document.getElementById('pPct').textContent = c.pct.toFixed(0)+'% usado'
+  document.getElementById('pRest').textContent = fmt(c.saldoRest)+' restante'
+  const pf = document.getElementById('pFill')
+  pf.style.width = pct+'%'
+  pf.className = 'prg-fill '+cls
+
+  // Metrics
+  document.getElementById('mSaldo').textContent = fmt(c.saldoDisp)
+  document.getElementById('mFixed').textContent = fmt(c.totFixed)
+  document.getElementById('mHoy').textContent   = fmt(c.hoy)
+  document.getElementById('mCount').textContent = exps.length
+
+  // Cat bars
+  const catCard = document.getElementById('catCard')
+  const catBars = document.getElementById('catBars')
+  const catEntries = Object.entries(c.bycat).sort((a,b)=>b[1]-a[1])
+  if(catEntries.length>0){
+    catCard.style.display='block'
+    const mx = Math.max(...Object.values(c.bycat))
+    catBars.innerHTML = catEntries.map(([cat,amt])=>{
+      const info = CATS[cat]||CATS['Varios']
+      return `<div class="cbar">
+        <div class="cbar-hdr"><span>${info.em} ${cat}</span><span>${fmt(amt)}</span></div>
+        <div class="cbar-track">
+          <div class="cbar-fill" style="width:${(amt/mx*100).toFixed(0)}%;background:${info.col}"></div>
+        </div></div>`
+    }).join('')
+  } else catCard.style.display='none'
+
+  // Recent
+  const rl = document.getElementById('recentList')
+  if(exps.length===0){
+    rl.innerHTML='<div class="empty"><div class="em">💸</div>Sin gastos aún<br><small>Registra tu primer gasto</small></div>'
+  } else {
+    rl.innerHTML=[...exps].reverse().slice(0,5).map(e=>eItemHTML(e,false)).join('')
+  }
+
+  // Config form
+  document.getElementById('cIncome').value   = cfg.income||''
+  document.getElementById('cSavings').value  = cfg.savingsGoal||''
+  document.getElementById('cApiKey').value   = cfg.apiKey||''
+  renderCfgExps()
+
+  // History
+  renderHistFilter()
+  renderHistory()
+}
+
+function eItemHTML(e, del){
+  const info = CATS[e.cat]||CATS['Varios']
+  const d    = new Date(e.ts)
+  const ds   = d.getDate().toString().padStart(2,'0')+'/'+(d.getMonth()+1).toString().padStart(2,'0')
+  return `<div class="eitem">
+    <div class="eico" style="background:${info.col}22">${info.em}</div>
+    <div class="einf">
+      <div class="edesc">${e.desc||e.cat}</div>
+      <div class="emeta">${e.cat} · ${ds}</div>
+    </div>
+    <span class="eamt">S/ ${(+e.amount).toFixed(2)}</span>
+    ${del?`<button class="delbtn" onclick="delExp('${e.id}')">✕</button>`:''}
+  </div>`
+}
+
+function renderCfgExps(){
+  document.getElementById('cfgExps').innerHTML = cfg.expenses.map((e,i)=>`
+    <div class="cfgrow cfg-row">
+      <input type="text"   class="exp-name" value="${e.name}"   placeholder="Nombre" style="flex:2">
+      <input type="number" class="exp-amt"  value="${e.amount}" placeholder="0"      style="flex:1;min-width:65px">
+      <button class="delbtn" onclick="removeCfgExp(${i})">✕</button>
+    </div>`).join('')
+}
+
+function renderHistFilter(){
+  const sel  = document.getElementById('histFil')
+  const prev = sel.value
+  const cats = [...new Set(exps.map(e=>e.cat))]
+  sel.innerHTML = '<option value="all">Todas</option>'+
+    cats.map(c=>`<option value="${c}">${CATS[c]?.em||''} ${c}</option>`).join('')
+  if(cats.includes(prev)) sel.value=prev
+}
+
+function renderHistory(){
+  const filter  = document.getElementById('histFil').value
+  const list    = document.getElementById('histList')
+  const totalEl = document.getElementById('histTotal')
+  const filtered = filter==='all' ? [...exps] : exps.filter(e=>e.cat===filter)
+
+  if(filtered.length===0){
+    list.innerHTML='<div class="empty" style="padding:28px"><div class="em">🔍</div>Sin gastos aquí</div>'
+    totalEl.textContent=''
+    return
+  }
+  const total = filtered.reduce((s,e)=>s+e.amount,0)
+  list.innerHTML='<div class="card">'+[...filtered].reverse().map(e=>eItemHTML(e,true)).join('')+'</div>'
+  totalEl.textContent=`${filtered.length} gastos · Total: ${fmt(total)}`
+}
+
+// ═══════════════════════════════════════════════════
+// ACCIONES
+// ═══════════════════════════════════════════════════
+function goTab(tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('active'))
+  document.getElementById('tab-'+tab).classList.add('active')
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active')
+  if(tab==='history') renderHistory()
+}
+
+function delExp(id){
+  exps = exps.filter(e=>e.id!==id)
+  persistExps(); renderAll()
+  toast('Gasto eliminado')
+}
+
+function addCfgExp(){
+  cfg.expenses.push({id:Date.now(),name:'',amount:0})
+  renderCfgExps()
+}
+
+function removeCfgExp(i){
+  cfg.expenses.splice(i,1)
+  renderCfgExps()
+}
+
+function doSaveCfg(){
+  cfg.income      = parseFloat(document.getElementById('cIncome').value)||0
+  cfg.savingsGoal = parseFloat(document.getElementById('cSavings').value)||0
+  cfg.apiKey      = document.getElementById('cApiKey').value.trim()
+  const rows = document.querySelectorAll('.cfg-row')
+  cfg.expenses = []
+  rows.forEach((r,i)=>{
+    const name   = r.querySelector('.exp-name').value.trim()
+    const amount = parseFloat(r.querySelector('.exp-amt').value)||0
+    if(name) cfg.expenses.push({id:Date.now()+i, name, amount})
+  })
+  persistCfg()
+  toast('✅ Configuración guardada')
+  renderAll()
+}
+
+function clearMonth(){
+  if(!confirm('¿Borrar todos los gastos de este mes?')) return
+  exps=[]
+  persistExps(); renderAll()
+  toast('Gastos del mes borrados')
+}
+
+// ═══════════════════════════════════════════════════
+// CONFIRM PANEL
+// ═══════════════════════════════════════════════════
+let selCat = 'Alimentación'
+
+function showConf(amount, cat, desc){
+  selCat = cat && CATS[cat] ? cat : 'Alimentación'
+  document.getElementById('cfAmt').value  = amount||''
+  document.getElementById('cfDesc').value = desc||''
+  document.getElementById('confPanel').style.display='block'
+  document.getElementById('cfChips').innerHTML = Object.keys(CATS).map(c=>`
+    <div class="chip${c===selCat?' sel':''}" onclick="pickCat('${c}')">${CATS[c].em} ${c}</div>`).join('')
+  document.getElementById('confPanel').scrollIntoView({behavior:'smooth',block:'nearest'})
+}
+
+function pickCat(cat){
+  selCat=cat
+  document.querySelectorAll('#cfChips .chip').forEach(c=>{
+    c.classList.toggle('sel', c.textContent.trim().includes(cat))
+  })
+}
+
+function confirmExp(){
+  const amount = parseFloat(document.getElementById('cfAmt').value)
+  const desc   = document.getElementById('cfDesc').value.trim()
+  if(!amount||amount<=0){ toast('⚠️ Ingresa un monto válido'); return }
+  exps.push({id:'e'+Date.now(), amount, cat:selCat, desc:desc||selCat, ts:new Date().toISOString()})
+  persistExps(); cancelConf(); renderAll()
+  goTab('dashboard')
+  toast('✅ S/ '+amount.toFixed(2)+' guardado')
+}
+
+function cancelConf(){
+  document.getElementById('confPanel').style.display='none'
+  document.getElementById('cfAmt').value=''
+  document.getElementById('cfDesc').value=''
+}
+
+// ═══════════════════════════════════════════════════
+// VOZ
+// ═══════════════════════════════════════════════════
+let recog=null, isRec=false
+
+function toggleVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition
+  if(!SR){ toast('⚠️ Voz no disponible en este navegador'); return }
+  if(isRec){ recog?.stop(); return }
+
+  recog=new SR()
+  recog.lang='es-PE'; recog.interimResults=false; recog.maxAlternatives=1
+
+  recog.onstart=()=>{
+    isRec=true
+    document.getElementById('voiceBtn').classList.add('rec')
+    document.getElementById('vStatus').textContent='🔴 Escuchando...'
+  }
+  recog.onend=()=>{
+    isRec=false
+    document.getElementById('voiceBtn').classList.remove('rec')
+    document.getElementById('vStatus').textContent='Toca el micrófono y habla'
+  }
+  recog.onerror=e=>{
+    isRec=false
+    document.getElementById('voiceBtn').classList.remove('rec')
+    toast('⚠️ '+e.error)
+  }
+  recog.onresult=e=>{
+    const txt=e.results[0][0].transcript
+    document.getElementById('vStatus').textContent='⏳ "'+txt+'"'
+    parseWithAI(txt)
+  }
+  recog.start()
+}
+
+async function parseWithAI(text){
+  if(!cfg.apiKey){ showConf(...simpleParser(text)); return }
+
+  document.getElementById('vStatus').textContent='🤖 Analizando...'
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':cfg.apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6', max_tokens:200,
+        system:'Extrae el gasto del texto en español peruano. Responde SOLO con JSON sin markdown:\n{"amount":número,"cat":"Alimentación|Transporte|Entretenimiento|Salud|Educación|Ropa|Hogar|Mascota|Varios","desc":"descripción breve"}',
+        messages:[{role:'user',content:text}]
+      })
+    })
+    const d=await r.json()
+    const raw=d.content?.[0]?.text||'{}'
+    const p=JSON.parse(raw.replace(/```json?|```/g,'').trim())
+    showConf(p.amount, p.cat, p.desc)
+  }catch{
+    showConf(...simpleParser(text))
+  }
+  document.getElementById('vStatus').textContent='Toca el micrófono y habla'
+}
+
+function parseManual(){
+  const txt=document.getElementById('manualTxt').value.trim()
+  if(!txt) return
+  document.getElementById('manualTxt').value=''
+  parseWithAI(txt)
+}
+
+function simpleParser(text){
+  const m=text.match(/(\d+(?:[.,]\d{1,2})?)/)
+  const amount=m?parseFloat(m[1].replace(',','.')):0
+  const low=text.toLowerCase()
+  let cat='Varios'
+  if(/almuerzo|comida|desayuno|cena|restaurante|mercado|pollo|pizza|hamburguesa|menú/.test(low)) cat='Alimentación'
+  else if(/taxi|uber|colectivo|bus|pasaje|gasolina|combustible|micro/.test(low)) cat='Transporte'
+  else if(/cine|película|concierto|juego|netflix|spotify|streaming/.test(low)) cat='Entretenimiento'
+  else if(/farmacia|medicina|doctor|salud|clínica|hospital/.test(low)) cat='Salud'
+  else if(/libro|curso|platzi|universidad|escuela|estudio/.test(low)) cat='Educación'
+  else if(/ropa|zapato|polo|camisa|jean|vestido/.test(low)) cat='Ropa'
+  else if(/thor|perro|gato|mascota|veterinaria|alimento animal/.test(low)) cat='Mascota'
+  return [amount, cat, text]
+}
+
+// ═══════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════
+let tTimer=null
+function toast(msg){
+  const t=document.getElementById('toast')
+  t.textContent=msg; t.classList.add('show')
+  clearTimeout(tTimer)
+  tTimer=setTimeout(()=>t.classList.remove('show'), 2500)
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+loadState()
+renderAll()
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{})
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "Mis Finanzas – Andrés",
+  "short_name": "Finanzas",
+  "description": "Control de gastos personal con voz",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0D47A1",
+  "theme_color": "#1564C0",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
