@@ -1,6 +1,6 @@
 // ─── Service Worker — Mis Finanzas PWA ───
 // Cambia el número de versión para forzar actualización del caché
-const CACHE = 'finanzas-v2'
+const CACHE = 'finanzas-v3'
 const FILES = [
   './index.html', './manifest.json', './icon.svg',
   './icon-192.png', './icon-512.png',
