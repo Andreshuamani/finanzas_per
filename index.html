@@ -82,6 +82,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
         background:rgba(255,255,255,.15);color:#fff;font-size:12.5px;
         font-weight:600;cursor:pointer;transition:background .2s}
 .tc-btn:hover{background:rgba(255,255,255,.25)}
+.tc-card.due{background:linear-gradient(135deg,#C62828,#8E0000);
+             box-shadow:0 4px 16px rgba(198,40,40,.35)}
+
+/* AI CHAT */
+#aiChat{display:flex;flex-direction:column;gap:9px}
+.msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.45}
+.msg-user{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
+.msg-ai{align-self:flex-start;background:var(--bg);color:var(--txt);border-bottom-left-radius:4px;white-space:pre-wrap}
+.msg-ai.loading{color:var(--txt2);font-style:italic}
 
 /* METRICS */
 .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -248,15 +257,32 @@ a{color:var(--primary)}
     <div class="prg-track"><div class="prg-fill g" id="pFill" style="width:0%"></div></div>
   </div>
 
-  <!-- TC ALERT CARD -->
+  <!-- TC DUE THIS MONTH ALERT (compras de meses anteriores que se pagan ESTE mes) -->
+  <div class="tc-card due hidden" id="dueCard">
+    <div class="tc-top">
+      <div>
+        <div class="tc-label">🔴 Pago de tarjeta que vence este mes</div>
+        <div class="tc-amount" id="dueAmt">S/ 0.00</div>
+      </div>
+      <div class="tc-due">
+        <div>Vence</div>
+        <strong id="dueDate">–</strong>
+      </div>
+    </div>
+    <div class="tc-actions">
+      <button class="tc-btn" onclick="goTab('history');filterHistory('credit')">Ver detalle →</button>
+    </div>
+  </div>
+
+  <!-- TC ALERT CARD (compras acumuladas este mes, se pagarán el mes siguiente) -->
   <div class="tc-card hidden" id="tcCard">
     <div class="tc-top">
       <div>
-        <div class="tc-label">💳 Comprometido en Tarjeta</div>
+        <div class="tc-label">💳 Comprometido en Tarjeta (este mes)</div>
         <div class="tc-amount" id="tcAmt">S/ 0.00</div>
       </div>
       <div class="tc-due">
-        <div>Fecha de pago</div>
+        <div>Se pagará el</div>
         <strong id="tcDue">–</strong>
       </div>
     </div>
@@ -371,13 +397,26 @@ a{color:var(--primary)}
   <div class="card">
     <div class="ctitle">Tu presupuesto</div>
     <div class="fg">
-      <label class="fl">Ingresos mensuales (S/)</label>
+      <label class="fl">Ingresos mensuales / sueldo (S/)</label>
       <input type="number" class="fi" id="cIncome" placeholder="3500">
+    </div>
+    <div class="fg">
+      <label class="fl">Día de cobro del sueldo</label>
+      <input type="number" class="fi" id="cIncomeDay" min="1" max="31" placeholder="1">
     </div>
     <div class="fg" style="margin-bottom:0">
       <label class="fl">Meta de ahorro mensual (S/)</label>
       <input type="number" class="fi" id="cSavings" placeholder="600">
     </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Ingresos extra</div>
+    <p style="font-size:12.5px;color:var(--txt2);margin-bottom:11px">
+      Bonos, freelance u otro ingreso recurrente, con su propio día de cobro.
+    </p>
+    <div id="cfgIncomes"></div>
+    <button class="btn bg" style="margin-top:11px" onclick="addCfgIncome()">+ Agregar ingreso extra</button>
   </div>
 
   <div class="card">
@@ -443,6 +482,31 @@ a{color:var(--primary)}
   </div>
 </div>
 
+<!-- ── TAB: ASISTENTE IA ── -->
+<div class="tab" id="tab-assistant">
+  <div class="card" id="aiKeyWarn" style="display:none">
+    <div class="ctitle">🤖 Consultor IA</div>
+    <p style="font-size:13px;color:var(--txt2)">
+      Necesitas configurar tu Gemini API Key en la pestaña Config para usar el consultor.
+    </p>
+    <button class="btn bp" style="margin-top:11px" onclick="goTab('config')">Ir a Config</button>
+  </div>
+  <div class="card" id="aiChatCard">
+    <div class="ctitle">🤖 Pregúntale a tus finanzas</div>
+    <div class="chips" style="margin-bottom:11px">
+      <div class="chip" onclick="askAI('¿Cuánto he gastado este mes y en qué categoría más?')">Resumen del mes</div>
+      <div class="chip" onclick="askAI('¿Cuánto debo de tarjeta y cuándo vence?')">Deuda de tarjeta</div>
+      <div class="chip" onclick="askAI('Compara mis gastos de este mes con el mes anterior')">Comparar meses</div>
+      <div class="chip" onclick="askAI('¿En qué podría estar gastando de más?')">Consejos</div>
+    </div>
+    <div id="aiChat"></div>
+    <div class="mrow" style="margin-top:11px">
+      <input type="text" class="fi" id="aiInput" placeholder="Escribe tu pregunta..." onkeydown="if(event.key==='Enter')askAI()">
+      <button class="btn bp bsm" onclick="askAI()">→</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- /main -->
 
 <!-- BOTTOM NAV -->
@@ -472,6 +536,12 @@ a{color:var(--primary)}
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>Config
   </button>
+  <button class="nbtn" data-tab="assistant" onclick="goTab('assistant')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/>
+      <path d="M2 14h2M20 14h2M9 13v2M15 13v2"/>
+    </svg>IA
+  </button>
 </nav>
 
 <div id="toast"></div>
@@ -499,8 +569,9 @@ const MESES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Set','Oct'
 // CONFIGURACIÓN POR DEFECTO (datos reales de Andrés)
 // ════════════════════════════════════════════════════════
 const DEF_CFG = {
-  income: 0, savingsGoal: 0, billingDay: 15,
+  income: 0, savingsGoal: 0, billingDay: 15, incomeDay: 1,
   geminiKey: '',
+  extraIncomes: [],
   expenses: [
     {id:1,name:'Alquiler',          amount:0},
     {id:2,name:'Comida (hogar)',    amount:0},
@@ -532,8 +603,10 @@ function saveExpsFor(y,m,arr){ localStorage.setItem(monthKey(y,m), JSON.stringif
 function loadState(){
   try{ cfg = JSON.parse(localStorage.getItem(CFG_KEY))||{...DEF_CFG} }
   catch{ cfg = {...DEF_CFG} }
-  if(!cfg.expenses)   cfg.expenses   = [...DEF_CFG.expenses]
-  if(!cfg.billingDay) cfg.billingDay = 15
+  if(!cfg.expenses)     cfg.expenses     = [...DEF_CFG.expenses]
+  if(!cfg.billingDay)   cfg.billingDay   = 15
+  if(!cfg.incomeDay)    cfg.incomeDay    = 1
+  if(!cfg.extraIncomes) cfg.extraIncomes = []
   const now = new Date()
   viewYear  = now.getFullYear()
   viewMonth = now.getMonth()
@@ -586,6 +659,15 @@ function getNextBillingDateFor(y,m){
 function getNextBillingDate(){
   return getNextBillingDateFor(viewYear, viewMonth)
 }
+// Gastos TC (de este mes o del anterior) cuya fecha de pago cae en (y,m):
+// esto es lo que realmente hay que pagar este mes.
+function creditDueList(y,m){
+  const prevM = m===0 ? 11 : m-1
+  const prevY = m===0 ? y-1 : y
+  const target = `${y}-${String(m+1).padStart(2,'0')}`
+  const pool = [...loadExpsFor(y,m), ...loadExpsFor(prevY,prevM)]
+  return pool.filter(e=>e.type==='credit' && e.paymentDate && e.paymentDate.startsWith(target))
+}
 
 function formatDate(isoDate){
   if(!isoDate) return '–'
@@ -598,13 +680,17 @@ function formatDate(isoDate){
 // ════════════════════════════════════════════════════════
 function calc(){
   const totFixed    = cfg.expenses.reduce((s,e)=>s+(+e.amount||0),0)
-  const saldoDisp   = (+cfg.income||0) - totFixed - (+cfg.savingsGoal||0)
+  const totExtra    = (cfg.extraIncomes||[]).reduce((s,i)=>s+(+i.amount||0),0)
+  const saldoDisp   = (+cfg.income||0) + totExtra - totFixed - (+cfg.savingsGoal||0)
   const cashExps    = exps.filter(e=>e.type!=='credit')
   const creditExps  = exps.filter(e=>e.type==='credit')
   const cashSpent   = cashExps.reduce((s,e)=>s+(+e.amount||0),0)
   const creditAmt   = creditExps.reduce((s,e)=>s+(+e.amount||0),0)
-  const saldoRest   = saldoDisp - cashSpent
-  const pct         = saldoDisp>0 ? cashSpent/saldoDisp*100 : (cashSpent>0?100:0)
+  const dueList     = creditDueList(viewYear, viewMonth)
+  const dueAmt      = dueList.reduce((s,e)=>s+(+e.amount||0),0)
+  const saldoRest   = saldoDisp - cashSpent - dueAmt
+  const committed   = cashSpent + dueAmt
+  const pct         = saldoDisp>0 ? committed/saldoDisp*100 : (committed>0?100:0)
   const today       = new Date().toDateString()
   const hoy         = cashExps.filter(e=>new Date(e.ts).toDateString()===today)
                                .reduce((s,e)=>s+e.amount,0)
@@ -613,8 +699,9 @@ function calc(){
 
   // Próxima fecha de pago TC (la más cercana entre los gastos TC del mes)
   const nextTCDate = getNextBillingDate()
+  const dueDate     = ymdStr(viewYear, viewMonth, Math.min(cfg.billingDay||15, new Date(viewYear,viewMonth+1,0).getDate()))
 
-  return {totFixed,saldoDisp,cashSpent,creditAmt,saldoRest,pct,hoy,bycat,creditExps,nextTCDate}
+  return {totFixed,totExtra,saldoDisp,cashSpent,creditAmt,dueList,dueAmt,saldoRest,pct,hoy,bycat,creditExps,nextTCDate,dueDate}
 }
 
 // ════════════════════════════════════════════════════════
@@ -651,7 +738,15 @@ function renderAll(){
   const pf=document.getElementById('pFill')
   pf.style.width=pct+'%'; pf.className='prg-fill '+cls
 
-  // TC card
+  // TC due this month (compras de meses anteriores que se pagan ahora)
+  const dueCard=document.getElementById('dueCard')
+  if(c.dueAmt>0){
+    dueCard.classList.remove('hidden')
+    document.getElementById('dueAmt').textContent = fmt(c.dueAmt)
+    document.getElementById('dueDate').textContent = formatDate(c.dueDate)
+  } else dueCard.classList.add('hidden')
+
+  // TC card (compras acumuladas este mes)
   const tcCard=document.getElementById('tcCard')
   if(c.creditAmt>0){
     tcCard.classList.remove('hidden')
@@ -692,12 +787,14 @@ function renderAll(){
 
   // Config form
   document.getElementById('cIncome').value     = cfg.income||''
+  document.getElementById('cIncomeDay').value  = cfg.incomeDay||1
   document.getElementById('cSavings').value    = cfg.savingsGoal||''
   document.getElementById('cBillingDay').value = cfg.billingDay||15
   document.getElementById('cGeminiKey').value  = cfg.geminiKey||''
   document.getElementById('cGClientId').value  = cfg.gClientId||''
   renderGoogleStatus()
   renderCfgExps()
+  renderCfgIncomes()
   renderHistory()
 }
 
@@ -743,6 +840,27 @@ function syncCfgExp(i){
   const name   = r.querySelector('.exp-name').value.trim()
   const amount = parseFloat(r.querySelector('.exp-amt').value)||0
   cfg.expenses[i] = {...cfg.expenses[i], name: name||'Gasto fijo', amount}
+  saveCfgStore()
+}
+
+function renderCfgIncomes(){
+  document.getElementById('cfgIncomes').innerHTML=(cfg.extraIncomes||[]).map((inc,i)=>`
+    <div class="cfgrow inc-row">
+      <input type="text"   class="inc-name" data-i="${i}" value="${inc.name}"   placeholder="Nombre" style="flex:2">
+      <input type="number" class="inc-amt"  data-i="${i}" value="${inc.amount}" placeholder="0"      style="flex:1;min-width:60px">
+      <input type="number" class="inc-day"  data-i="${i}" value="${inc.day||1}" placeholder="Día" min="1" max="31" style="flex:0 0 55px">
+      <button class="delbtn" onclick="rmCfgIncome(${i})">✕</button>
+    </div>`).join('')
+}
+
+function syncCfgIncome(i){
+  const rows = document.querySelectorAll('.inc-row')
+  const r = rows[i]
+  if(!r) return
+  const name   = r.querySelector('.inc-name').value.trim()
+  const amount = parseFloat(r.querySelector('.inc-amt').value)||0
+  const day    = Math.min(31, Math.max(1, parseInt(r.querySelector('.inc-day').value)||1))
+  cfg.extraIncomes[i] = {...cfg.extraIncomes[i], name: name||'Ingreso extra', amount, day}
   saveCfgStore()
 }
 
@@ -906,6 +1024,10 @@ function goTab(tab){
   document.getElementById('tab-'+tab).classList.add('active')
   document.querySelector(`[data-tab="${tab}"]`).classList.add('active')
   if(tab==='history') renderHistory()
+  if(tab==='assistant'){
+    document.getElementById('aiKeyWarn').style.display  = cfg.geminiKey ? 'none' : 'block'
+    document.getElementById('aiChatCard').style.display = cfg.geminiKey ? 'block' : 'none'
+  }
 }
 
 function delExp(id){
@@ -917,8 +1039,12 @@ function delExp(id){
 function addCfgExp(){ cfg.expenses.push({id:Date.now(),name:'',amount:0}); saveCfgStore(); renderCfgExps() }
 function rmCfgExp(i){ cfg.expenses.splice(i,1); saveCfgStore(); renderCfgExps() }
 
+function addCfgIncome(){ cfg.extraIncomes.push({id:Date.now(),name:'',amount:0,day:1}); saveCfgStore(); renderCfgIncomes() }
+function rmCfgIncome(i){ cfg.extraIncomes.splice(i,1); saveCfgStore(); renderCfgIncomes() }
+
 function doSaveCfg(){
   cfg.income      = parseFloat(document.getElementById('cIncome').value)||0
+  cfg.incomeDay   = Math.min(31, Math.max(1, parseInt(document.getElementById('cIncomeDay').value)||1))
   cfg.savingsGoal = parseFloat(document.getElementById('cSavings').value)||0
   cfg.billingDay  = parseInt(document.getElementById('cBillingDay').value)||15
   cfg.geminiKey   = document.getElementById('cGeminiKey').value.trim()
@@ -1036,6 +1162,24 @@ function toggleVoice(){
 // ════════════════════════════════════════════════════════
 // GEMINI API
 // ════════════════════════════════════════════════════════
+const GEMINI_MODEL = 'gemini-2.5-flash'
+
+async function callGemini(prompt, maxTokens){
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${cfg.geminiKey}`,
+    {method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({
+       contents:[{parts:[{text:prompt}]}],
+       generationConfig:{maxOutputTokens:maxTokens,temperature:0}
+     })}
+  )
+  const d = await r.json()
+  if(!r.ok) throw new Error(d.error?.message || `HTTP ${r.status}`)
+  const raw = d.candidates?.[0]?.content?.parts?.[0]?.text
+  if(raw===undefined) throw new Error('Respuesta vacía de Gemini (revisa la API key o la cuota)')
+  return raw
+}
+
 async function parseWithGemini(text){
   if(!cfg.geminiKey){ const p=simpleParser(text); showConf(p[0],p[1],p[2],p[3]); return }
 
@@ -1048,19 +1192,12 @@ Si no hay monto claro usa 0.
 Texto: ${text}`
 
   try{
-    const r=await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${cfg.geminiKey}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({
-         contents:[{parts:[{text:prompt}]}],
-         generationConfig:{maxOutputTokens:150,temperature:0}
-       })}
-    )
-    const d=await r.json()
-    const raw=d.candidates?.[0]?.content?.parts?.[0]?.text||'{}'
+    const raw = await callGemini(prompt, 150)
     const p=JSON.parse(raw.replace(/```json?|```/g,'').trim())
     showConf(p.amount, p.cat, p.desc, p.type||'cash')
-  }catch{
+  }catch(err){
+    console.error('Gemini error:', err)
+    toast('⚠️ IA no disponible ('+err.message+'), usando detección básica')
     const p=simpleParser(text); showConf(p[0],p[1],p[2],p[3])
   }
   document.getElementById('vStatus').textContent='Toca el micrófono y habla'
@@ -1091,6 +1228,83 @@ function simpleParser(text){
 }
 
 // ════════════════════════════════════════════════════════
+// CONSULTOR IA
+// ════════════════════════════════════════════════════════
+function buildFinanceContext(){
+  const months = []
+  for(let i=0;i<localStorage.length;i++){
+    const key = localStorage.key(i)
+    if(key && key.startsWith('pf_exp_')){
+      const [,,y,m] = key.split('_')
+      const arr = JSON.parse(localStorage.getItem(key))||[]
+      if(arr.length) months.push({y:+y, m:+m, exps:arr})
+    }
+  }
+  months.sort((a,b)=> a.y-b.y || a.m-b.m)
+
+  const presupuesto = {
+    ingresoMensual: cfg.income, diaCobroSueldo: cfg.incomeDay,
+    ingresosExtra: (cfg.extraIncomes||[]).map(i=>({nombre:i.name, monto:+i.amount, diaCobro:i.day})),
+    metaAhorroMensual: cfg.savingsGoal,
+    gastosFijosMensuales: cfg.expenses.map(e=>({nombre:e.name, monto:+e.amount})),
+    diaPagoTarjeta: cfg.billingDay,
+  }
+  const meses = months.map(mo => ({
+    mes: `${MESES[mo.m]} ${mo.y}`,
+    gastos: mo.exps.map(e=>({
+      monto:+e.amount, categoria:e.cat, desc:e.desc,
+      tipo: e.type==='credit'?'tarjeta':'efectivo',
+      fecha: e.ts?.split('T')[0],
+      fechaPagoSiEsTarjeta: e.paymentDate||undefined,
+    }))
+  }))
+  return {hoy:new Date().toISOString().split('T')[0], presupuesto, meses}
+}
+
+let aiHistory = []
+
+function escapeHtml(s){
+  const d = document.createElement('div')
+  d.textContent = s
+  return d.innerHTML
+}
+
+function renderAiChat(){
+  const el = document.getElementById('aiChat')
+  el.innerHTML = aiHistory.map(m=>
+    `<div class="msg ${m.role==='user'?'msg-user':'msg-ai'}${m.loading?' loading':''}">${escapeHtml(m.text)}</div>`
+  ).join('')
+  el.scrollTop = el.scrollHeight
+}
+
+async function askAI(preset){
+  const input = document.getElementById('aiInput')
+  const q = preset!==undefined ? preset : input.value.trim()
+  if(!q) return
+  if(!cfg.geminiKey){ toast('⚠️ Configura tu Gemini API Key en Config'); goTab('config'); return }
+  input.value = ''
+  aiHistory.push({role:'user', text:q})
+  aiHistory.push({role:'ai', text:'Pensando...', loading:true})
+  renderAiChat()
+
+  const prompt = `Eres un asistente financiero personal. Responde en español peruano, breve y claro (máximo 6 líneas), usando SOLO los datos JSON de abajo (montos en soles, S/). Si algo no está en los datos, dilo — no inventes cifras.
+
+DATOS:
+${JSON.stringify(buildFinanceContext())}
+
+PREGUNTA: ${q}`
+
+  try{
+    const raw = await callGemini(prompt, 500)
+    aiHistory[aiHistory.length-1] = {role:'ai', text:raw.trim()}
+  }catch(err){
+    console.error('Gemini error:', err)
+    aiHistory[aiHistory.length-1] = {role:'ai', text:'⚠️ No pude responder: '+err.message}
+  }
+  renderAiChat()
+}
+
+// ════════════════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════════════════
 let tTimer=null
@@ -1108,6 +1322,10 @@ renderAll()
 document.getElementById('cfgExps').addEventListener('input', e=>{
   const t=e.target
   if(t.classList.contains('exp-name')||t.classList.contains('exp-amt')) syncCfgExp(+t.dataset.i)
+})
+document.getElementById('cfgIncomes').addEventListener('input', e=>{
+  const t=e.target
+  if(t.classList.contains('inc-name')||t.classList.contains('inc-amt')||t.classList.contains('inc-day')) syncCfgIncome(+t.dataset.i)
 })
 if(cfg.gClientId) window.addEventListener('load', ()=>initGoogleAuth())
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{})
