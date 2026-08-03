@@ -85,6 +85,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 .tc-card.due{background:linear-gradient(135deg,#C62828,#8E0000);
              box-shadow:0 4px 16px rgba(198,40,40,.35)}
 
+/* DESGLOSE */
+.brk-row{display:flex;justify-content:space-between;align-items:baseline;
+         font-size:13.5px;color:var(--txt2);padding:7px 0;border-bottom:1px solid var(--border)}
+.brk-row:last-child{border-bottom:none}
+.brk-row span:last-child{font-weight:600;color:var(--txt)}
+.brk-sub{display:block;font-size:11px;color:var(--txt2);font-weight:400;margin-top:2px}
+.brk-total{margin-top:2px;padding-top:11px}
+.brk-total span:first-child{color:var(--txt);font-weight:600}
+.brk-total span:last-child{font-size:16px;font-weight:700;color:var(--primary-dk)}
+
 /* AI CHAT */
 #aiChat{display:flex;flex-direction:column;gap:9px}
 .msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.45}
@@ -190,7 +200,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
 
 /* TOAST */
 #toast{position:fixed;bottom:calc(var(--nav-h) + 14px);left:50%;
-       transform:translateX(-50%) translateY(100px);background:#1A1A2E;
+       transform:translateX(-50%) translateY(calc(100% + var(--nav-h) + 34px));
+       background:#1A1A2E;pointer-events:none;
        color:#fff;padding:11px 20px;border-radius:24px;font-size:13.5px;
        font-weight:500;z-index:1000;transition:transform .3s ease;white-space:nowrap}
 #toast.show{transform:translateX(-50%) translateY(0)}
@@ -250,6 +261,15 @@ a{color:var(--primary)}
 
 <!-- ── TAB: RESUMEN ── -->
 <div class="tab active" id="tab-dashboard">
+
+  <!-- DESGLOSE: qué pasa con tu plata apenas cobras -->
+  <div class="card">
+    <div class="ctitle">💰 Desglose de tu sueldo</div>
+    <div class="brk-row"><span>Ingreso del mes<span class="brk-sub" id="brkIncomeDay"></span></span><span id="brkIncome">S/ 0</span></div>
+    <div class="brk-row"><span>− Gastos fijos (apartado)</span><span id="brkFixed">S/ 0</span></div>
+    <div class="brk-row"><span>− Meta de ahorro (apartado)</span><span id="brkSavings">S/ 0</span></div>
+    <div class="brk-row brk-total"><span>= Disponible para gastar</span><span id="brkAvail">S/ 0</span></div>
+  </div>
 
   <div class="card">
     <div class="ctitle">Gastos en efectivo</div>
@@ -738,6 +758,13 @@ function renderAll(){
   const pf=document.getElementById('pFill')
   pf.style.width=pct+'%'; pf.className='prg-fill '+cls
 
+  // Desglose de sueldo
+  document.getElementById('brkIncome').textContent = fmt((+cfg.income||0) + c.totExtra)
+  document.getElementById('brkIncomeDay').textContent = cfg.incomeDay ? `Cobras el día ${cfg.incomeDay}` : ''
+  document.getElementById('brkFixed').textContent  = fmt(c.totFixed)
+  document.getElementById('brkSavings').textContent = fmt(+cfg.savingsGoal||0)
+  document.getElementById('brkAvail').textContent  = fmt(c.saldoDisp)
+
   // TC due this month (compras de meses anteriores que se pagan ahora)
   const dueCard=document.getElementById('dueCard')
   if(c.dueAmt>0){
@@ -1162,11 +1189,15 @@ function toggleVoice(){
 // ════════════════════════════════════════════════════════
 // GEMINI API
 // ════════════════════════════════════════════════════════
-const GEMINI_MODEL = 'gemini-2.5-flash'
+// Lista de modelos a probar en orden. Google renombra/retira modelos con el
+// tiempo (ya nos pasó con gemini-1.5-flash-latest); si el primero falla,
+// se prueba el siguiente. El que funcione se recuerda en cfg.geminiModel
+// para no repetir intentos fallidos en cada consulta.
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash']
 
-async function callGemini(prompt, maxTokens){
+async function callGeminiModel(model, prompt, maxTokens){
   const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${cfg.geminiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cfg.geminiKey}`,
     {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({
        contents:[{parts:[{text:prompt}]}],
@@ -1178,6 +1209,21 @@ async function callGemini(prompt, maxTokens){
   const raw = d.candidates?.[0]?.content?.parts?.[0]?.text
   if(raw===undefined) throw new Error('Respuesta vacía de Gemini (revisa la API key o la cuota)')
   return raw
+}
+
+async function callGemini(prompt, maxTokens){
+  const order = cfg.geminiModel
+    ? [cfg.geminiModel, ...GEMINI_MODELS.filter(m=>m!==cfg.geminiModel)]
+    : GEMINI_MODELS
+  let lastErr
+  for(const model of order){
+    try{
+      const raw = await callGeminiModel(model, prompt, maxTokens)
+      if(cfg.geminiModel!==model){ cfg.geminiModel=model; saveCfgStore() }
+      return raw
+    }catch(err){ lastErr=err }
+  }
+  throw lastErr
 }
 
 async function parseWithGemini(text){
